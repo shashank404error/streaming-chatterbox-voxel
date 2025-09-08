@@ -2,7 +2,7 @@ from pathlib import Path
 
 import librosa
 import torch
-import perth
+from .Perth import perth
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 

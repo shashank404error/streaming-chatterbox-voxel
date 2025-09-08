@@ -4,7 +4,7 @@ import os
 
 import librosa
 import torch
-import perth
+from .Perth import perth
 import torch.nn.functional as F
 from safetensors.torch import load_file as load_safetensors
 from huggingface_hub import snapshot_download
@@ -150,7 +150,8 @@ class ChatterboxMultilingualTTS:
         self.tokenizer = tokenizer
         self.device = device
         self.conds = conds
-        self.watermarker = perth.PerthImplicitWatermarker()
+        # self.watermarker = perth.PerthImplicitWatermarker()
+        self.watermarker = None
 
     @classmethod
     def get_supported_languages(cls):
@@ -162,8 +163,9 @@ class ChatterboxMultilingualTTS:
         ckpt_dir = Path(ckpt_dir)
 
         ve = VoiceEncoder()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         ve.load_state_dict(
-            torch.load(ckpt_dir / "ve.pt", weights_only=True)
+            torch.load(ckpt_dir / "ve.pt",map_location=device, weights_only=True)
         )
         ve.to(device).eval()
 
@@ -175,8 +177,9 @@ class ChatterboxMultilingualTTS:
         t3.to(device).eval()
 
         s3gen = S3Gen()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         s3gen.load_state_dict(
-            torch.load(ckpt_dir / "s3gen.pt", weights_only=True)
+            torch.load(ckpt_dir / "s3gen.pt",map_location=device, weights_only=True)
         )
         s3gen.to(device).eval()
 
@@ -297,5 +300,9 @@ class ChatterboxMultilingualTTS:
                 ref_dict=self.conds.gen,
             )
             wav = wav.squeeze(0).detach().cpu().numpy()
-            watermarked_wav = self.watermarker.apply_watermark(wav, sample_rate=self.sr)
+            if self.watermarker is not None:
+                watermarked_wav = self.watermarker.apply_watermark(wav, sample_rate=self.sr)
+            else:
+                watermarked_wav = wav
+            # watermarked_wav = self.watermarker.apply_watermark(wav, sample_rate=self.sr)
         return torch.from_numpy(watermarked_wav).unsqueeze(0)
